@@ -1,0 +1,47 @@
+pipeline {
+    agent any
+    
+    tools {
+        maven 'Maven3'
+    }
+
+    environment {
+        registryName = "prokoptocontainerR"
+        registryUrl = "prokoptocontainerr.azurecr.io"
+        registryCredentials = "ACR"  // Make sure this matches your Jenkins credentials ID
+        imageName = "boardgame"
+    }
+
+    stages {
+        stage('Git Checkout') {
+            steps {
+                git branch: 'main', credentialsId: 'github-cred', url: 'https://github.com/jerinvarghese1993/Boardgame.git'
+            }
+        }
+
+        stage('Build Project') {
+            steps {
+                sh 'mvn clean package -DskipTests=true'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh "docker build -t ${registryUrl}/${imageName}:latest ."
+                }
+            }
+        }
+
+        stage('Login to ACR & Push Image') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: registryCredentials, usernameVariable: 'Username', passwordVariable: 'Password')]) {
+                        sh "docker login ${registryUrl} -u ${Username} -p ${Password}"  // This will fetch username and password from ACR
+                        sh "docker push ${registryUrl}/${imageName}:latest"
+                    }
+                }
+            }
+        }
+    }
+}
